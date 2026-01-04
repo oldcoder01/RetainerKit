@@ -1,14 +1,11 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getPool } from "@/lib/db";
-
-function sessionCookieName(): string {
-  return "next-auth.session-token";
-}
+import { clearSessionCookies, getSessionTokenFromCookies } from "@/lib/auth/session-cookie";
 
 export async function POST() {
   const cookieStore = await cookies();
-  const token = cookieStore.get(sessionCookieName())?.value;
+  const token = getSessionTokenFromCookies(cookieStore);
 
   if (token) {
     const pool = getPool();
@@ -16,11 +13,6 @@ export async function POST() {
   }
 
   const res = NextResponse.json({ ok: true }, { status: 200 });
-  res.cookies.set(sessionCookieName(), "", {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    expires: new Date(0),
-  });
+  clearSessionCookies(res);
   return res;
 }
