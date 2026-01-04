@@ -2,12 +2,23 @@
 import { authOptions } from "@/lib/auth/options";
 import { getPool } from "@/lib/db";
 import { CreateProjectForm } from "@/components/CreateProjectForm";
+import { ProjectsTable, type ProjectListItem } from "@/components/ProjectsTable";
+import { getActiveWorkspaceForUser } from "@/lib/workspace";
 
 type ProjectRow = {
   id: string;
   name: string;
-  created_at: Date;
+  created_at: unknown;
 };
+
+function toIsoString(value: unknown): string {
+  if (value instanceof Date) return value.toISOString();
+
+  const dt = new Date(String(value));
+  if (Number.isNaN(dt.getTime())) return new Date(0).toISOString();
+
+  return dt.toISOString();
+}
 
 export default async function ProjectsPage() {
   const session = await getServerSession(authOptions);
@@ -18,20 +29,27 @@ export default async function ProjectsPage() {
     return null;
   }
 
+  const ws = await getActiveWorkspaceForUser(userId);
   const pool = getPool();
   const res = await pool.query<ProjectRow>(
-    `SELECT id, name, created_at FROM projects WHERE user_id = $1 ORDER BY created_at DESC`,
-    [userId]
+    `SELECT id, name, created_at FROM projects WHERE workspace_id = $1 AND user_id = $2 ORDER BY created_at DESC`,
+    [ws.id, userId]
   );
+
+  const projects: ProjectListItem[] = res.rows.map((p) => {
+    return {
+      id: p.id,
+      name: p.name,
+      createdAt: toIsoString(p.created_at),
+    };
+  });
 
   return (
     <div className="space-y-6">
       <div className="card bg-base-100 shadow">
         <div className="card-body space-y-2">
           <h1 className="text-2xl font-bold">Projects</h1>
-          <p className="text-sm text-base-content/70">
-            Minimal SQL-first CRUD: create + list scoped to your user.
-          </p>
+          <p className="text-sm text-base-content/70">Minimal SQL-first CRUD: create + list scoped to your user.</p>
         </div>
       </div>
 
@@ -45,27 +63,10 @@ export default async function ProjectsPage() {
         <div className="card-body">
           <h2 className="font-semibold">Your projects</h2>
 
-          {res.rows.length === 0 ? (
+          {projects.length === 0 ? (
             <p className="text-sm text-base-content/70">No projects yet.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Created</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {res.rows.map((p) => (
-                    <tr key={p.id}>
-                      <td className="font-medium">{p.name}</td>
-                      <td className="text-sm text-base-content/70">{new Date(p.created_at).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ProjectsTable projects={projects} />
           )}
         </div>
       </div>

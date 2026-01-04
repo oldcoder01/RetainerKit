@@ -2,6 +2,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/options";
 import { getPool } from "@/lib/db";
+import { getActiveWorkspaceForUser } from "@/lib/workspace";
 
 type ProjectRow = {
   id: string;
@@ -19,10 +20,15 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const ws = await getActiveWorkspaceForUser(session.user.id);
+
   const pool = getPool();
   const res = await pool.query<ProjectRow>(
-    `SELECT id, name, created_at FROM projects WHERE user_id = $1 ORDER BY created_at DESC`,
-    [session.user.id]
+    `SELECT id, name, created_at
+     FROM projects
+     WHERE workspace_id = $1
+     ORDER BY created_at DESC`,
+    [ws.id]
   );
 
   return NextResponse.json({ projects: res.rows }, { status: 200 });
@@ -41,10 +47,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Project name must be 1–120 characters." }, { status: 400 });
   }
 
+  const ws = await getActiveWorkspaceForUser(session.user.id);
+
   const pool = getPool();
   const res = await pool.query<ProjectRow>(
-    `INSERT INTO projects (user_id, name) VALUES ($1, $2) RETURNING id, name, created_at`,
-    [session.user.id, name]
+    `
+      INSERT INTO projects (workspace_id, created_by_user_id, user_id, name)
+      VALUES ($1, $2, $2, $3)
+      RETURNING id, name, created_at
+    `,
+    [ws.id, session.user.id, name]
   );
 
   return NextResponse.json({ project: res.rows[0] }, { status: 201 });
