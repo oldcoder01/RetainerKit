@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: retainerkit-db
+    environment:
+      POSTGRES_USER: retainerkit
+      POSTGRES_PASSWORD: retainerkit
+      POSTGRES_DB: retainerkit
+    ports:
+      - "5432:5432"
+    volumes:
+      - retainerkit_pgdata:/var/lib/postgresql/data
+
+volumes:
+  retainerkit_pgdata:
