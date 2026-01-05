@@ -4,9 +4,10 @@ import Link from "next/link";
 
 import { authOptions } from "@/lib/auth/options";
 import { getActiveWorkspaceForUser } from "@/lib/workspace";
+import { getActiveClientForUserInWorkspace } from "@/lib/client";
 import { SignOutButton } from "@/components/SignOutButton";
 
-export default async function PortalLayout({ children }: { children: React.ReactNode }) {
+export default async function ClientLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     redirect("/login");
@@ -14,10 +15,12 @@ export default async function PortalLayout({ children }: { children: React.React
 
   const ws = await getActiveWorkspaceForUser(session.user.id);
 
-  // Client users should never see contractor pages.
-  if (ws.role === "client") {
-    redirect("/client");
+  // Contractor users live in /portal.
+  if (ws.role !== "client") {
+    redirect("/portal");
   }
+
+  const client = await getActiveClientForUserInWorkspace(session.user.id, ws.id);
 
   return (
     <div className="min-h-screen bg-base-200">
@@ -25,31 +28,16 @@ export default async function PortalLayout({ children }: { children: React.React
         <div className="mx-auto w-full max-w-5xl px-4">
           <div className="flex w-full items-center justify-between">
             <div className="flex items-center gap-2">
-              <Link href="/" className="btn btn-ghost text-xl">
+              <Link href="/client" className="btn btn-ghost text-xl">
                 RetainerKit
               </Link>
 
               <div className="hidden gap-1 sm:flex">
-                <Link href="/portal" className="btn btn-ghost btn-sm">
-                  Portal
+                <Link href="/client" className="btn btn-ghost btn-sm">
+                  Dashboard
                 </Link>
-                <Link href="/portal/projects" className="btn btn-ghost btn-sm">
-                  Projects
-                </Link>
-                <Link href="/portal/clients" className="btn btn-ghost btn-sm">
-                  Clients
-                </Link>
-                <Link href="/portal/contracts" className="btn btn-ghost btn-sm">
-                  Contracts
-                </Link>
-                <Link href="/portal/work" className="btn btn-ghost btn-sm">
-                  Work Logs
-                </Link>
-                <Link href="/portal/invoices" className="btn btn-ghost btn-sm">
+                <Link href="/client/invoices" className="btn btn-ghost btn-sm">
                   Invoices
-                </Link>
-                <Link href="/portal/account" className="btn btn-ghost btn-sm">
-                  Account
                 </Link>
               </div>
             </div>
@@ -58,12 +46,9 @@ export default async function PortalLayout({ children }: { children: React.React
               <div className="hidden text-sm text-base-content/70 sm:block">
                 <div>
                   Workspace: <span className="font-medium">{ws.name}</span>
-                  <span className="ml-2 rounded bg-base-200 px-2 py-0.5 text-xs font-medium uppercase">
-                    {ws.role}
-                  </span>
                 </div>
                 <div>
-                  Signed in as <span className="font-mono">{session.user.email}</span>
+                  Client: <span className="font-medium">{client?.name ?? "(none)"}</span>
                 </div>
               </div>
               <SignOutButton />

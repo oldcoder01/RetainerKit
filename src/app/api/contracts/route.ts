@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/options";
 import { getPool } from "@/lib/db";
 import { getActiveWorkspaceForUser } from "@/lib/workspace";
+import { requireContractorWorkspace } from "@/lib/authz";
 
 type ContractRow = {
   id: string;
@@ -45,6 +46,10 @@ export async function GET(req: Request) {
   }
 
   const ws = await getActiveWorkspaceForUser(session.user.id);
+  const gate = requireContractorWorkspace(ws);
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
+  }
   const url = new URL(req.url);
   const clientId = url.searchParams.get("clientId");
 
@@ -113,6 +118,10 @@ export async function POST(req: Request) {
   }
 
   const ws = await getActiveWorkspaceForUser(session.user.id);
+  const gate = requireContractorWorkspace(ws);
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
+  }
   const pool = getPool();
 
   // Friendly check: client must exist in this workspace

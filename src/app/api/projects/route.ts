@@ -1,8 +1,9 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/options";
 import { getPool } from "@/lib/db";
 import { getActiveWorkspaceForUser } from "@/lib/workspace";
+import { requireContractorWorkspace } from "@/lib/authz";
 
 type ProjectRow = {
   id: string;
@@ -21,6 +22,10 @@ export async function GET() {
   }
 
   const ws = await getActiveWorkspaceForUser(session.user.id);
+  const gate = requireContractorWorkspace(ws);
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
+  }
 
   const pool = getPool();
   const res = await pool.query<ProjectRow>(
@@ -48,6 +53,10 @@ export async function POST(req: Request) {
   }
 
   const ws = await getActiveWorkspaceForUser(session.user.id);
+  const gate = requireContractorWorkspace(ws);
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
+  }
 
   const pool = getPool();
   const res = await pool.query<ProjectRow>(

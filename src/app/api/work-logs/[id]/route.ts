@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/options";
 import { getPool } from "@/lib/db";
 import { getActiveWorkspaceForUser } from "@/lib/workspace";
+import { requireContractorWorkspace } from "@/lib/authz";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -89,6 +90,10 @@ export async function PATCH(req: Request, ctx: RouteContext) {
   }
 
   const ws = await getActiveWorkspaceForUser(session.user.id);
+  const gate = requireContractorWorkspace(ws);
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
+  }
   const pool = getPool();
 
   // If contract_id updated, enforce it exists in same workspace
@@ -137,6 +142,10 @@ export async function DELETE(_req: Request, ctx: RouteContext) {
   }
 
   const ws = await getActiveWorkspaceForUser(session.user.id);
+  const gate = requireContractorWorkspace(ws);
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
+  }
   const pool = getPool();
 
   const res = await pool.query<{ id: string }>(

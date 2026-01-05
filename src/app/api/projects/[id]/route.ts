@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/options";
 import { getPool } from "@/lib/db";
 import { getActiveWorkspaceForUser } from "@/lib/workspace";
+import { requireContractorWorkspace } from "@/lib/authz";
 
 type RouteContext = {
   params: Promise<{
@@ -30,6 +31,12 @@ export async function DELETE(_req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const ws = await getActiveWorkspaceForUser(session.user.id);
+  const gate = requireContractorWorkspace(ws);
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
+  }
+
   const params = await ctx.params;
   const projectId = params.id;
 
@@ -39,8 +46,10 @@ export async function DELETE(_req: Request, ctx: RouteContext) {
 
   const pool = getPool();
   const res = await pool.query<{ id: string }>(
-    `DELETE FROM projects WHERE id = $1 AND user_id = $2 RETURNING id`,
-    [projectId, session.user.id]
+    `DELETE FROM projects
+     WHERE id = $1 AND workspace_id = $2
+     RETURNING id`,
+    [projectId, ws.id]
   );
 
   if (res.rowCount === 0) {
@@ -59,6 +68,10 @@ export async function PATCH(req: Request, ctx: RouteContext) {
   const params = await ctx.params;
   const projectId = params.id;
   const ws = await getActiveWorkspaceForUser(session.user.id);
+  const gate = requireContractorWorkspace(ws);
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
+  }
 
   if (!isUuid(projectId)) {
     return NextResponse.json({ error: "Invalid project id" }, { status: 400 });
@@ -75,9 +88,9 @@ export async function PATCH(req: Request, ctx: RouteContext) {
   const res = await pool.query<ProjectRow>(
     `UPDATE projects
      SET name = $1
-     WHERE id = $2 AND user_id = $3 AND AND workspace_id=$4
+     WHERE id = $2 AND workspace_id = $3
      RETURNING id, name, created_at`,
-    [name, projectId, session.user.id, ws.id]
+    [name, projectId, ws.id]
   );
 
   if (res.rowCount === 0) {

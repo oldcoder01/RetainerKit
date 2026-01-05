@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export type ClientListItem = {
   id: string;
@@ -112,6 +113,9 @@ export function ClientsTable(props: { clients: ClientListItem[] }) {
                 <td className="font-medium">{c.name}</td>
                 <td className="text-sm text-base-content/70">{new Date(c.createdAt).toLocaleString()}</td>
                 <td className="text-right whitespace-nowrap">
+                  <Link href={`/portal/clients/${c.id}`} className="btn btn-ghost btn-sm">
+                    Members
+                  </Link>
                   <button className="btn btn-ghost btn-sm" onClick={() => openRename(c)}>
                     Rename
                   </button>

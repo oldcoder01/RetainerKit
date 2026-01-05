@@ -3,9 +3,16 @@ import { authOptions } from "@/lib/auth/options";
 import { getPool } from "@/lib/db";
 import { getActiveWorkspaceForUser } from "@/lib/workspace";
 import { CreateInvoiceForm } from "@/components/CreateInvoiceForm";
+import { GenerateInvoiceFromLogsForm, type ContractRateOption } from "@/components/GenerateInvoiceFromLogsForm";
 import { InvoicesTable, type InvoiceListItem, type ContractOption } from "@/components/InvoicesTable";
 
-type ContractRow = { id: string; title: string; client_name: string };
+type ContractRow = {
+  id: string;
+  title: string;
+  client_name: string;
+  hourly_rate_cents: number | null;
+  currency: string;
+};
 
 type InvoiceRow = {
   id: string;
@@ -38,7 +45,7 @@ export default async function InvoicesPage() {
 
   const contractsRes = await pool.query<ContractRow>(
     `
-      SELECT c.id, c.title, cl.name AS client_name
+      SELECT c.id, c.title, cl.name AS client_name, c.hourly_rate_cents, c.currency
       FROM contracts c
       JOIN clients cl
         ON cl.id = c.client_id AND cl.workspace_id = c.workspace_id
@@ -79,6 +86,13 @@ export default async function InvoicesPage() {
     label: `${c.client_name} — ${c.title}`,
   }));
 
+  const contractRateOptions: ContractRateOption[] = contractsRes.rows.map((c) => ({
+    id: c.id,
+    label: `${c.client_name} — ${c.title}`,
+    hourlyRateCents: c.hourly_rate_cents,
+    currency: c.currency,
+  }));
+
   const invoices: InvoiceListItem[] = invoicesRes.rows.map((i) => ({
     id: i.id,
     contractId: i.contract_id,
@@ -100,6 +114,12 @@ export default async function InvoicesPage() {
           <p className="text-sm text-base-content/70">
             Workspace: <span className="font-medium">{ws.name}</span>
           </p>
+        </div>
+      </div>
+
+      <div className="card bg-base-100 shadow">
+        <div className="card-body">
+          <GenerateInvoiceFromLogsForm contracts={contractRateOptions} />
         </div>
       </div>
 
